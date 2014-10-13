@@ -53,11 +53,11 @@ module Doorkeeper
             return false unless @scope.present?
             Helpers::ScopeChecker.valid? @scope, application.scopes
           else
-            return true unless @scope.present?
-            if application.scopes.present?
-              Helpers::ScopeChecker.valid? @scope, application.scopes
+            return true unless scope.present?
+            if application.scopes.present? && application.scopes.any?
+              Helpers::ScopeChecker.valid? scope, application.scopes
             else
-              Helpers::ScopeChecker.valid? @scope, server.scopes
+              Helpers::ScopeChecker.valid? scope, server.scopes
             end
           end
         else
