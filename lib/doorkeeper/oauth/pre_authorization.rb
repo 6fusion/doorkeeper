@@ -50,8 +50,9 @@ module Doorkeeper
         application = client.application
         if application && application.respond_to?(:valid_scopes)
           if application.scope_required?
-            return false unless @scope.present?
-            Helpers::ScopeChecker.valid? @scope, application.scopes
+            # Validate application scopes including default scopes
+            return false unless scope.present?
+            Helpers::ScopeChecker.valid? scope, application.scopes
           else
             return true unless scope.present?
             if application.scopes.present? && application.scopes.any?
