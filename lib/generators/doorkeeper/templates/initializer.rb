@@ -26,6 +26,15 @@ Doorkeeper.configure do
   # If you want to disable expiration, set this to nil.
   # access_token_expires_in 2.hours
 
+  # Assign a custom TTL for implicit grants.
+  # custom_access_token_expires_in do |oauth_client|
+  #   oauth_client.application.additional_settings.implicit_oauth_expiration
+  # end
+
+  # Use a custom class for generating the access token.
+  # https://github.com/doorkeeper-gem/doorkeeper#custom-access-token-generator
+  # access_token_generator "::Doorkeeper::JWT"
+
   # Reuse access token for the same resource owner within an application (disabled by default)
   # Rationale: https://github.com/doorkeeper-gem/doorkeeper/issues/383
   # reuse_access_token
@@ -64,6 +73,12 @@ Doorkeeper.configure do
   #
   # native_redirect_uri 'urn:ietf:wg:oauth:2.0:oob'
 
+  # Forces the usage of the HTTPS protocol in non-native redirect uris (enabled
+  # by default in non-development environments). OAuth2 delegates security in
+  # communication to the HTTPS protocol so it is wise to keep this enabled.
+  #
+  # force_ssl_in_redirect_uri !Rails.env.development?
+
   # Specify what grant flows are enabled in array of Strings. The valid
   # strings and the flows they enable are:
   #
@@ -72,22 +87,23 @@ Doorkeeper.configure do
   # "password"           => Resource Owner Password Credentials Grant Flow
   # "client_credentials" => Client Credentials Grant Flow
   #
-  # If not specified, Doorkeeper enables all the four grant flows.
+  # If not specified, Doorkeeper enables authorization_code and
+  # client_credentials.
   #
-  # grant_flows %w(authorization_code implicit password client_credentials)
+  # implicit and password grant flows have risks that you should understand
+  # before enabling:
+  #   http://tools.ietf.org/html/rfc6819#section-4.4.2
+  #   http://tools.ietf.org/html/rfc6819#section-4.4.3
+  #
+  # grant_flows %w(authorization_code client_credentials)
 
   # Under some circumstances you might want to have applications auto-approved,
   # so that the user skips the authorization step.
-  # For example if dealing with trusted a application.
+  # For example if dealing with a trusted application.
   # skip_authorization do |resource_owner, client|
   #   client.superapp? or resource_owner.admin?
   # end
 
   # WWW-Authenticate Realm (default "Doorkeeper").
   # realm "Doorkeeper"
-
-  # Allow dynamic query parameters (disabled by default)
-  # Some applications require dynamic query parameters on their request_uri
-  # set to true if you want this to be allowed
-  # wildcard_redirect_uri false
 end

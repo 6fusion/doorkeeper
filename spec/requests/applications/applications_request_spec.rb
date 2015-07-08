@@ -8,7 +8,9 @@ feature 'Adding applications' do
 
     scenario 'adding a valid app' do
       fill_in 'doorkeeper_application[name]', with: 'My Application'
-      fill_in 'doorkeeper_application[redirect_uri]', with: 'http://example.com'
+      fill_in 'doorkeeper_application[redirect_uri]',
+              with: 'https://example.com'
+
       click_button 'Submit'
       i_should_see 'Application created'
       i_should_see 'My Application'
@@ -35,7 +37,7 @@ feature 'Listing applications' do
 end
 
 feature 'Show application' do
-  let :app do
+  given :app do
     FactoryGirl.create :application, name: 'Just another oauth app'
   end
 

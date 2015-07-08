@@ -58,7 +58,7 @@ module Doorkeeper
             if application.scopes.present? && application.scopes.any?
               Helpers::ScopeChecker.valid? scope, application.scopes
             else
-              Helpers::ScopeChecker.valid? scope, server.scopes
+              Helpers::ScopeChecker.valid? scope, server.scopes #client.application.scopes
             end
           end
         else

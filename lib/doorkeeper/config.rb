@@ -7,35 +7,38 @@ module Doorkeeper
 
   def self.configure(&block)
     @config = Config::Builder.new(&block).build
-    enable_orm
+    setup_orm_adapter
+    setup_orm_models
     setup_application_owner if @config.enable_application_owner?
+    check_requirements
   end
 
   def self.configuration
     @config || (fail MissingConfiguration.new)
   end
 
-  def self.orm_model_dir
-    case configuration.orm
-    when :mongoid3, :mongoid4
-      'mongoid3_4'
-    else
-      configuration.orm
-    end
+  def self.check_requirements
+    @orm_adapter.check_requirements!(configuration)
   end
 
-  def self.enable_orm
-    require "doorkeeper/models/#{orm_model_dir}/access_grant"
-    require "doorkeeper/models/#{orm_model_dir}/access_token"
-    require "doorkeeper/models/#{orm_model_dir}/application"
-    require 'doorkeeper/models/access_grant'
-    require 'doorkeeper/models/access_token'
-    require 'doorkeeper/models/application'
+  def self.setup_orm_adapter
+    @orm_adapter = "doorkeeper/orm/#{configuration.orm}".classify.constantize
+  rescue NameError => e
+    fail e, "ORM adapter not found (#{configuration.orm})", <<-ERROR_MSG.squish
+[doorkeeper] ORM adapter not found (#{configuration.orm}), or there was an error
+trying to load it.
+
+You probably need to add the related gem for this adapter to work with
+doorkeeper.
+      ERROR_MSG
+  end
+
+  def self.setup_orm_models
+    @orm_adapter.initialize_models!
   end
 
   def self.setup_application_owner
-    require File.join(File.dirname(__FILE__), 'models', 'ownership')
-    Application.send :include, Models::Ownership
+    @orm_adapter.initialize_application_owner!
   end
 
   class Config
@@ -84,6 +87,16 @@ module Doorkeeper
 
       def reuse_access_token
         @config.instance_variable_set("@reuse_access_token", true)
+      end
+
+      def force_ssl_in_redirect_uri(boolean)
+        @config.instance_variable_set("@force_ssl_in_redirect_uri", boolean)
+      end
+
+      def access_token_generator(access_token_generator)
+        @config.instance_variable_set(
+          '@access_token_generator', access_token_generator
+        )
       end
     end
 
@@ -152,28 +165,30 @@ module Doorkeeper
 
     option :resource_owner_authenticator,
            as: :authenticate_resource_owner,
-           default: (lambda do |routes|
+           default: (lambda do |_routes|
              logger.warn(I18n.translate('doorkeeper.errors.messages.resource_owner_authenticator_not_configured'))
              nil
            end)
     option :admin_authenticator,
            as: :authenticate_admin,
-           default: ->(routes) {}
+           default: ->(_routes) {}
     option :resource_owner_from_credentials,
-           default: (lambda do |routes|
+           default: (lambda do |_routes|
              warn(I18n.translate('doorkeeper.errors.messages.credential_flow_not_configured'))
              nil
            end)
-    option :skip_authorization,            default: ->(routes) {}
-    option :access_token_expires_in,       default: 7200
-    option :authorization_code_expires_in, default: 600
-    option :orm,                           default: :active_record
-    option :native_redirect_uri,           default: 'urn:ietf:wg:oauth:2.0:oob'
-    option :active_record_options,         default: {}
-    option :realm,                         default: 'Doorkeeper'
-    option :wildcard_redirect_uri,         default: false
-    option :grant_flows,
-           default: %w(authorization_code implicit password client_credentials)
+
+    option :skip_authorization,             default: ->(_routes) {}
+    option :access_token_expires_in,        default: 7200
+    option :custom_access_token_expires_in, default: lambda { |_app| nil }
+    option :authorization_code_expires_in,  default: 600
+    option :orm,                            default: :active_record
+    option :native_redirect_uri,            default: 'urn:ietf:wg:oauth:2.0:oob'
+    option :active_record_options,          default: {}
+    option :realm,                          default: 'Doorkeeper'
+    option :force_ssl_in_redirect_uri,      default: !Rails.env.development?
+    option :grant_flows,                    default: %w(authorization_code client_credentials)
+    option :access_token_generator,         default: "Doorkeeper::OAuth::Helpers::UniqueToken"
 
     attr_reader :reuse_access_token
 
@@ -201,10 +216,6 @@ module Doorkeeper
       @scopes ||= default_scopes + optional_scopes
     end
 
-    def orm_name
-      [:mongoid2, :mongoid3, :mongoid4].include?(orm) ? :mongoid : orm
-    end
-
     def client_credentials_methods
       @client_credentials ||= [:from_basic, :from_params]
     end
@@ -225,7 +236,7 @@ module Doorkeeper
       @token_grant_types ||= calculate_token_grant_types
     end
 
-  private
+    private
 
     # Determines what values are acceptable for 'response_type' param in
     # authorization request endpoint, and return them as an array of strings.

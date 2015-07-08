@@ -14,12 +14,28 @@ describe Doorkeeper, 'configuration' do
     end
   end
 
+  describe 'setup_orm_adapter' do
+    it 'adds specific error message to NameError exception' do
+      expect do
+        Doorkeeper.configure { orm 'hibernate' }
+      end.to raise_error(NameError, /ORM adapter not found \(hibernate\)/)
+    end
+
+    it 'does not change other exceptions' do
+      allow_any_instance_of(String).to receive(:classify) { raise NoMethodError }
+
+      expect do
+        Doorkeeper.configure { orm 'hibernate' }
+      end.to raise_error(NoMethodError, /ORM adapter not found \(hibernate\)/)
+    end
+  end
+
   describe 'admin_authenticator' do
     it 'sets the block that is accessible via authenticate_admin' do
       block = proc {}
       Doorkeeper.configure do
         orm DOORKEEPER_ORM
-        admin_authenticator &block
+        admin_authenticator(&block)
       end
       expect(subject.authenticate_admin).to eq(block)
     end
@@ -119,6 +135,20 @@ describe Doorkeeper, 'configuration' do
     end
   end
 
+  describe 'force_ssl_in_redirect_uri' do
+    it 'is true by default in non-development environments' do
+      expect(subject.force_ssl_in_redirect_uri).to be_truthy
+    end
+
+    it 'can change the value' do
+      Doorkeeper.configure do
+        orm DOORKEEPER_ORM
+        force_ssl_in_redirect_uri(false)
+      end
+      expect(subject.force_ssl_in_redirect_uri).to be_falsey
+    end
+  end
+
   describe 'access_token_credentials' do
     it 'has defaults order' do
       expect(subject.access_token_methods).to eq([:from_bearer_authorization, :from_access_token_param, :from_bearer_param])
@@ -169,12 +199,6 @@ describe Doorkeeper, 'configuration' do
     end
   end
 
-  describe 'wildcard_redirect_uri' do
-    it 'is disabled by default' do
-      Doorkeeper.configuration.wildcard_redirect_uri.should be_falsey
-    end
-  end
-
   describe 'realm' do
     it 'is \'Doorkeeper\' by default' do
       expect(Doorkeeper.configuration.realm).to eq('Doorkeeper')
@@ -191,12 +215,8 @@ describe Doorkeeper, 'configuration' do
 
   describe "grant_flows" do
     it "is set to all grant flows by default" do
-      expect(Doorkeeper.configuration.grant_flows).to eq [
-        'authorization_code',
-        'implicit',
-        'password',
-        'client_credentials'
-      ]
+      expect(Doorkeeper.configuration.grant_flows).
+        to eq(%w(authorization_code client_credentials))
     end
 
     it "can change the value" do
@@ -276,6 +296,22 @@ describe Doorkeeper, 'configuration' do
 
     Doorkeeper.module_eval do
       @config = old_config
+    end
+  end
+
+  describe 'access_token_generator' do
+    it 'is \'Doorkeeper::OAuth::Helpers::UniqueToken\' by default' do
+      expect(Doorkeeper.configuration.access_token_generator).to(
+        eq('Doorkeeper::OAuth::Helpers::UniqueToken')
+      )
+    end
+
+    it 'can change the value' do
+      Doorkeeper.configure do
+        orm DOORKEEPER_ORM
+        access_token_generator 'Example'
+      end
+      expect(subject.access_token_generator).to eq('Example')
     end
   end
 end

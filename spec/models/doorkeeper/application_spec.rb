@@ -2,8 +2,6 @@ require 'spec_helper_integration'
 
 module Doorkeeper
   describe Application do
-    include OrmHelper
-
     let(:require_owner) { Doorkeeper.configuration.instance_variable_set('@confirm_application_owner', true) }
     let(:unset_require_owner) { Doorkeeper.configuration.instance_variable_set('@confirm_application_owner', false) }
     let(:new_application) { FactoryGirl.build(:application) }
@@ -32,7 +30,7 @@ module Doorkeeper
       context 'application owner is required' do
         before(:each) do
           require_owner
-          @owner = mock_application_owner
+          @owner = FactoryGirl.build_stubbed(:user)
         end
 
         it 'is invalid without an owner' do
@@ -171,6 +169,21 @@ module Doorkeeper
         app = FactoryGirl.create :application
         authenticated = Application.by_uid_and_secret(app.uid, app.secret)
         expect(authenticated).to eq(app)
+      end
+    end
+
+    if Doorkeeper.configuration.orm == :active_record
+      describe :scopes do
+        it 'fails on missing column with an upgrade notice' do
+          app = FactoryGirl.build :application
+          no_scopes_app = double(attributes: [])
+          allow(Application).to receive(:new).and_return(no_scopes_app)
+
+          expect { app.scopes }.to raise_error(
+            NameError,
+            /Missing column: `applications.scopes`/
+          )
+        end
       end
     end
   end
