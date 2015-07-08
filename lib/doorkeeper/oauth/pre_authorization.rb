@@ -48,22 +48,27 @@ module Doorkeeper
 
       def validate_scopes
         application = client.application
-        if application && application.respond_to?(:valid_scopes)
+
+        if application && application.respond_to?(:scopes)
           if application.scope_required?
             # Validate application scopes including default scopes
-            return false unless scope.present?
-            Helpers::ScopeChecker.valid? scope, application.scopes
+            return false if scope.blank?
+            Helpers::ScopeChecker.valid? scope, server.scopes, application.scopes
           else
             return true unless scope.present?
             if application.scopes.present? && application.scopes.any?
-              Helpers::ScopeChecker.valid? scope, application.scopes
+              Helpers::ScopeChecker.valid? scope, server.scopes, application.scopes
             else
               Helpers::ScopeChecker.valid? scope, server.scopes #client.application.scopes
             end
           end
         else
           return true unless scope.present?
-          Helpers::ScopeChecker.valid? scope, server.scopes
+          Helpers::ScopeChecker.valid?(
+              scope,
+              server.scopes,
+              client.application.scopes
+          )
         end
       end
 

@@ -4,7 +4,7 @@ module Doorkeeper
 
     include OAuth::Helpers
     include Models::Scopes
-    alias_attribute :scopes, :valid_scopes
+
     include ActiveModel::MassAssignmentSecurity if defined?(::ProtectedAttributes)
 
     included do
@@ -14,12 +14,12 @@ module Doorkeeper
       validates :name, :secret, :uid, presence: true
       validates :uid, uniqueness: true
       validates :redirect_uri, redirect_uri: true
-      validates :valid_scopes, presence: true, if: Proc.new { |p| p.respond_to?(:valid_scopes) && scope_required? }
+      validates :scopes, presence: true, if: Proc.new { |p| p.respond_to?(:scopes) && scope_required? }
 
       before_validation :generate_uid, :generate_secret, on: :create
 
       if respond_to?(:attr_accessible)
-        attr_accessible :name, :redirect_uri, :valid_scopes, :scope_required
+        attr_accessible :name, :redirect_uri, :scopes, :scope_required
       end
     end
 
