@@ -4,8 +4,6 @@ module Doorkeeper
       response = authorize_response
       self.headers.merge! response.headers
       self.response_body = response.body.to_json
-      Rails.logger.error "*******CURRENT USER"
-      Rails.logger.error current_resource_owner
       self.status        = response.status
     rescue Errors::DoorkeeperError => e
       handle_token_exception e
